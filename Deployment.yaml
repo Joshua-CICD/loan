@@ -1,0 +1,91 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loan
+  namespace: test
+spec:
+  selector:
+    matchLabels:
+      app: loan
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: loan
+    spec:
+      imagePullSecrets:
+        - name: ecr-image-pull-secret
+      containers:
+      - image: 382942022480.dkr.ecr.us-east-1.amazonaws.com/loan:**TAG**
+        name: loan
+        ports:
+        - name: loanport
+          containerPort: 5001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loan
+  namespace: test
+spec:
+  ports:
+  - port: 5001
+    protocol: TCP
+    targetPort: loanport
+  type: ClusterIP
+  selector:
+    app: loan
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loan-postgres-service
+  namespace: test
+spec:
+  selector:
+    app: loan-postgres
+  ports:
+    - name: loan-postgres
+      port: 5432
+  clusterIP: None
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loan-postgres
+  namespace: test
+spec:
+  selector:
+    matchLabels:
+      app: loan-postgres
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: loan-postgres
+    spec:
+      containers:
+        - name: loan-postgres
+          image: postgres:12.4
+          env:
+            - name: POSTGRES_USER
+              value: admin
+            - name: POSTGRES_PASSWORD
+              value: password
+            - name: POSTGRES_DB
+              value: postgres
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: loan-postgres-data
+              mountPath: /var/lib/loan/postgresql/data
+      volumes:
+        - name: loan-postgres-data
+          emptyDir: {}
